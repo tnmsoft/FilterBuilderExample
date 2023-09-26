@@ -1,0 +1,106 @@
+@using DevExtreme.AspNet.Mvc
+@using FilterBuilderExample.Models
+
+<h2>Filter Builder Tech Demo</h2>
+
+<div>
+    <b>Choose Table</b></>
+    @(Html.DevExtreme().SelectBox()
+                    .DataSource(d => d.Mvc().Controller("FilterData").LoadAction("FilterTables").Key("Name"))
+                    .DisplayExpr("Caption")
+                    .ValueExpr("Name")
+                    .Value(1)
+                    .OnValueChanged("table_OnChanged")
+                )
+</div>
+@(Html.DevExtreme().FilterBuilder()
+    .ID("filterBuilder")
+    .MaxGroupLevel(1)
+    .GroupOperations(new[] {
+        FilterBuilderGroupOperations.And,
+        FilterBuilderGroupOperations.Or
+    })
+    .OnInitialized("filterBuilder_Init")
+)
+
+@(Html.DevExtreme().Button()
+        .Text("Get Filter SQL")
+        .Type(ButtonType.Default)
+        .OnClick("getFilterSQL")
+    )
+
+@(Html.DevExtreme().Button()
+        .Text("Save Current Filter")
+        .Type(ButtonType.Default)
+        .OnClick("storeFilter")
+    )
+
+@(Html.DevExtreme().Button()
+        .Text("Load Saved Filter")
+        .Type(ButtonType.Default)
+        .OnClick("loadFilter")
+    )
+<div class="results">
+    <div>
+        <b>SQL Where Clause</b>
+        <pre id="filterText"></pre>
+    </div>
+</div>
+
+<script>
+
+    function filterBuilder_Init(e) {
+        var fields = [];
+        $.getJSON("/filterdata/filterfields/", function (result) {
+            fields = result;
+            var fb = $("#filterBuilder").dxFilterBuilder("instance");
+            fb.option("fields", fields);
+        });
+    }
+
+    function table_OnChanged(e) {
+        var table = e.component.option("value");
+        var fb = $("#filterBuilder").dxFilterBuilder("instance");
+        fb.option("value", []);
+        function matchTable(field) {
+            return field.dataField.startsWith(table + ".");
+        }
+        var fields = [];
+        $.getJSON("/filterdata/filterfields/", function (result) {
+            fields = result.filter(matchTable);
+            var fb = $("#filterBuilder").dxFilterBuilder("instance");
+            fb.option("fields", fields);
+        });
+    }
+
+    function getFilterSQL() {
+        var filter = $("#filterBuilder").dxFilterBuilder("instance").getFilterExpression();
+        $.post("/filterdata/getsql/", { filter : JSON.stringify(filter) }, function (data) {
+            $("#filterText").text(data);
+        });
+    }
+
+    function storeFilter() {
+        var fb = $("#filterBuilder").dxFilterBuilder("instance");
+        var filter = fb.option("value");
+        $.post("/filterdata/storefilter/", { filter: JSON.stringify(filter) }, function (data) {
+            DevExpress.ui.notify("Filter saved", { position: "center", direction: "up-push" });
+        });
+    }
+
+    function loadFilter() {
+        var fields = [];
+        $.getJSON("/filterdata/filterfields/", function (result) {
+            fields = result;
+            var fb = $("#filterBuilder").dxFilterBuilder("instance");
+            fb.option("fields", fields);
+        });
+        $.getJSON("/filterdata/loadfilter/", function (result) {
+            value = result;
+            var fb = $("#filterBuilder").dxFilterBuilder("instance");
+            fb.option("value", value);
+            DevExpress.ui.notify("Filter loaded", { position: "center", direction: "up-push" });
+        });
+    }
+
+</script>
